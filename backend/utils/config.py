@@ -1,3 +1,10 @@
-import os
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-S3_BUCKET = os.getenv("S3_BUCKET", "resume-analyzer-bucket")
+import boto3
+
+AWS_REGION = "us-east-1"
+S3_BUCKET = "resume-analyzer-group13"
+
+def get_s3_client():
+    return boto3.client("s3", region_name=AWS_REGION)
+
+def get_dynamodb_resource():
+    return boto3.resource("dynamodb", region_name=AWS_REGION)

@@ -1,0 +1,6 @@
+flask
+boto3
+textract
+sentence-transformers
+numpy
+pandas
