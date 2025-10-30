@@ -1,7 +1,7 @@
 import boto3
 
 AWS_REGION = "us-east-1"
-S3_BUCKET = "resume-analyzer-bucket"
+S3_BUCKET = "resume-analyzer-group13"
 
 def get_s3_client():
     return boto3.client("s3", region_name=AWS_REGION)
