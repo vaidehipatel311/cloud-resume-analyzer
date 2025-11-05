@@ -4,3 +4,4 @@ textract
 sentence-transformers
 numpy
 pandas
+flask_cors
