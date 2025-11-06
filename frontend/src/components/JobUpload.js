@@ -14,7 +14,7 @@ const JobUpload = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     await axios.post("http://localhost:5000/upload-job", { job: jobDesc });
-    alert("✅ Job description uploaded to S3!");
+    alert("Job description uploaded to S3!");
   };
 
   return (
@@ -32,12 +32,12 @@ const JobUpload = () => {
         <button type="submit">Upload Job Description</button>
       </form>
 
-      <h3>Available Resumes</h3>
+      {/* <h3>Available Resumes</h3>
       <ul>
         {resumes.map((file) => (
           <li key={file}>{file}</li>
         ))}
-      </ul>
+      </ul> */}
     </div>
   );
 };

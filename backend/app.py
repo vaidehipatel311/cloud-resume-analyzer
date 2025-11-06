@@ -2,10 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from utils.config import get_s3_client, S3_BUCKET
 import uuid
-from utils.upload_dataset import upload_dataset_to_s3
+# from utils.upload_dataset import upload_dataset_to_s3
 from utils.config import get_dynamodb_resource
+import boto3, os, pytesseract
+from pdf2image import convert_from_bytes
 
 app = Flask(__name__)
+s3 = boto3.client('s3')
 CORS(app)
 
 # Step 1: Ensure dataset is in S3
@@ -23,7 +26,8 @@ def home():
 @app.route('/upload-job', methods=['POST'])
 def upload_job_description():
     data = request.get_json()
-    job_text = data.get('job_description', '')
+    print(data);
+    job_text = data.get('job', '')
     if not job_text:
         return jsonify({'error': 'Job description required'}), 400
 
@@ -43,6 +47,29 @@ def list_resumes():
     response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix="resumes/")
     files = [obj["Key"].split("/")[-1] for obj in response.get("Contents", []) if obj["Key"].endswith(".pdf")]
     return jsonify({"resumes": files})
+
+
+
+@app.route("/new-file", methods=["POST"])
+def process_file():
+    data = request.get_json()
+    bucket = data["bucket"]
+    key = data["key"]
+    
+    # Download file from S3
+    local_pdf = os.path.basename(key)
+    s3.download_file(bucket, key, local_pdf)
+    
+    # Convert and OCR
+    pages = convert_from_bytes(open(local_pdf, 'rb').read())
+    text = "\n".join(pytesseract.image_to_string(p) for p in pages)
+    
+    # Upload result to processed-texts/
+    output_key = f"processed-texts/{os.path.splitext(os.path.basename(key))[0]}.txt"
+    s3.put_object(Bucket=bucket, Key=output_key, Body=text.encode("utf-8"))
+
+    print(f"Extracted and uploaded text for {key}")
+    return {"message": "processed"}
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
