@@ -30,6 +30,7 @@ const JobUpload = () => {
 
   return (
     <div style={styles.container}>
+      <h2 style={styles.heading}>CLOUD RESUME ANALYZER</h2>
       <h2 style={styles.heading}>Job Description Upload</h2>
 
       <form onSubmit={handleSubmit} style={styles.form}>
@@ -59,7 +60,7 @@ const JobUpload = () => {
             <tbody>
               {matchedResumes.map((resume) => (
                 <tr key={resume.resume_id} style={styles.tableRow}>
-                  <td>{resume.resume_id}</td>
+                  <td>{resume.resume}</td>
                   <td>{(resume.similarity * 100).toFixed(2)}%</td>
                 </tr>
               ))}

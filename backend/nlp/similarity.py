@@ -1,86 +1,64 @@
 import boto3
+import os
 import json
 import numpy as np
-import os
 
-# ------------------------
-# Config
-# ------------------------
 BUCKET = "resume-analyzer-group13"
-EMB_FOLDER = "resume-embeddings/"
+EMBEDDINGS_PREFIX = "resume-embeddings/"
 TMP_DIR = "backend/tmp/"
-SIMILARITY_THRESHOLD = 0.6  # only return matches above this
+SIMILARITY_THRESHOLD = 0.0  # KEEP ALL RESUMES
 
+os.makedirs(TMP_DIR, exist_ok=True)
 s3 = boto3.client("s3")
 
-# Ensure temporary directory exists
-os.makedirs(TMP_DIR, exist_ok=True)
 
-
-# ------------------------
-# Load embeddings from S3
-# ------------------------
+# ------------------------------
+# LOAD ALL RESUME EMBEDDINGS
+# ------------------------------
 def load_all_embeddings_from_s3():
-    """
-    Load all embeddings from S3.
-    Assumes each JSON is a plain array of numbers.
-    Returns a dict: {resume_id: numpy_array_embedding}
-    """
     embeddings = {}
 
-    # List all files in the embeddings folder
-    response = s3.list_objects_v2(Bucket=BUCKET, Prefix=EMB_FOLDER)
+    response = s3.list_objects_v2(Bucket=BUCKET, Prefix=EMBEDDINGS_PREFIX)
+
     for obj in response.get("Contents", []):
         key = obj["Key"]
-        if key.endswith(".json"):
-            resume_id = key.split("/")[-1].replace(".json", "")
-            tmp_file = os.path.join(TMP_DIR, f"{resume_id}.json")
+        if not key.endswith(".json"):
+            continue
 
-            # Download from S3
-            s3.download_file(BUCKET, key, tmp_file)
+        resume_id = key.split("/")[-1].replace(".json", "")
+        tmp_path = os.path.join(TMP_DIR, resume_id + ".json")
 
-            # Load embedding
-            with open(tmp_file, "r", encoding="utf-8") as f:
-                embedding_vector = json.load(f)
-                embeddings[resume_id] = np.array(embedding_vector)
+        s3.download_file(BUCKET, key, tmp_path)
+
+        with open(tmp_path, "r") as f:
+            vector = json.load(f)
+
+        embeddings[resume_id] = np.array(vector)
 
     return embeddings
 
-ALL_EMBEDDINGS = load_all_embeddings_from_s3()
 
-# ------------------------
-# Cosine similarity
-# ------------------------
-def cosine_similarity(vec1, vec2):
-    """
-    Compute cosine similarity between two numpy vectors
-    """
-    if np.linalg.norm(vec1) == 0 or np.linalg.norm(vec2) == 0:
+# ------------------------------
+# COSINE SIMILARITY
+# ------------------------------
+def cosine_similarity(a, b):
+    if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
         return 0.0
-    return float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
 
-# ------------------------
-# Match similar resumes
-# ------------------------
-def match_similar_resumes(candidate_embedding, top_k=5):
-    """
-    Find top-k resumes most similar to candidate_embedding.
+# ------------------------------
+# MATCH RESUMES
+# ------------------------------
+def match_similar_resumes(job_embedding, top_k=10):
+    all_embs = load_all_embeddings_from_s3()
 
-    candidate_embedding: list or numpy array
-    Returns list of dicts: [{"resume_id": ..., "similarity": ...}, ...]
-    """
-    all_embeddings = load_all_embeddings_from_s3()
-    candidate_vec = np.array(candidate_embedding)
-    similarities = []
+    job_vec = np.array(job_embedding)
+    results = []
 
-    for resume_id, emb_vec in all_embeddings.items():
-        sim = cosine_similarity(candidate_vec, emb_vec)
-        if sim >= SIMILARITY_THRESHOLD:
-            similarities.append({"resume_id": resume_id, "similarity": sim})
+    for resume_id, emb in all_embs.items():
+        sim = cosine_similarity(job_vec, emb)
+        results.append({"resume": resume_id, "similarity": sim})
 
-    # Sort by similarity descending
-    similarities.sort(key=lambda x: x["similarity"], reverse=True)
-
-    # Return top_k
-    return similarities[:top_k]
+    results.sort(key=lambda x: x["similarity"], reverse=True)
+    return results[:top_k]
