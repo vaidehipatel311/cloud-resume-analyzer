@@ -2,10 +2,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from utils.config import get_s3_client, S3_BUCKET
 import uuid
-# from utils.upload_dataset import upload_dataset_to_s3
 from utils.config import get_dynamodb_resource
 import boto3, os, pytesseract
 from pdf2image import convert_from_bytes
+from nlp.similarity import load_all_embeddings_from_s3
+from nlp.embeddings import embed_job_description
 
 app = Flask(__name__)
 s3 = boto3.client('s3')
@@ -70,6 +71,32 @@ def process_file():
 
     print(f"Extracted and uploaded text for {key}")
     return {"message": "processed"}
+
+# generate_resume_embeddings_once()
+
+# all_embeddings = load_all_embeddings_from_s3()
+
+
+@app.post("/upload-jobdesc")
+def upload_jobdesc():
+    data = request.get_json()
+    text = data.get("job_description")
+    
+    if not text:
+        return jsonify({"error": "No job description provided"}), 400
+
+    # Generate embedding for the job description
+    job_embedding = embed_job_description(text)
+
+    # Match with resumes in S3
+    from nlp.similarity import match_similar_resumes
+    matches = match_similar_resumes(job_embedding, top_k=10)
+
+    if not matches:
+        return jsonify({"matches": [], "message": "No resumes matched this job description"})
+
+    return jsonify({"matches": matches})
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

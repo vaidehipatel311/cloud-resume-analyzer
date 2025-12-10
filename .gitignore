@@ -1,2 +1,4 @@
 node_modules/
-dataset/
+backend/dataset/
+backend/backend/tmp/
+tests/
